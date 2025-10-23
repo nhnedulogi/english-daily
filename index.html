@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>오늘의 영어 문장</title>
     <style>
         * {
@@ -104,12 +104,19 @@
             overflow: hidden;
             margin-bottom: 20px;
             touch-action: pan-x;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            user-select: none;
+            -webkit-user-select: none;
         }
         
         .slider-wrapper {
             display: flex;
             transition: transform 0.3s ease;
             touch-action: pan-x;
+            will-change: transform;
+            user-select: none;
+            -webkit-user-select: none;
         }
         
         .slide {
@@ -395,6 +402,7 @@
     </div>
 
     <script>
+        // ===== Data =====
         const dailyConversations = [
             {
                 situation: "아침에 깨우기",
@@ -437,6 +445,7 @@
             }
         ];
 
+        // ===== State =====
         let currentSlide = 0;
         let startX = 0;
         let currentX = 0;
@@ -446,6 +455,7 @@
             showAnalysis: [false, false, false]
         };
 
+        // ===== Helpers =====
         function displayDate() {
             const today = new Date();
             const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
@@ -455,9 +465,8 @@
 
         function getTodayConversations() {
             const today = new Date();
-            const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
+            const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
             const startIndex = (dayOfYear * 3) % dailyConversations.length;
-            
             return [
                 dailyConversations[startIndex % dailyConversations.length],
                 dailyConversations[(startIndex + 1) % dailyConversations.length],
@@ -467,14 +476,12 @@
 
         function createSlide(conv, index) {
             const showK = state.showKorean[index];
-            const showA = state.showAnalysis[index];
-            
             return `
                 <div class="slide" data-slide-index="${index}">
                     <div class="card">
                         <div class="situation-tag">📍 ${conv.situation}</div>
                         <div class="conversation">
-                            ${conv.dialogs.map((dialog, idx) => `
+                            ${conv.dialogs.map(dialog => `
                                 <div class="dialog-item">
                                     <div class="speaker-icon">${dialog.icon}</div>
                                     <div class="dialog-content">
@@ -486,12 +493,8 @@
                                 </div>
                             `).join('')}
                         </div>
-                        <button class="toggle-btn" data-btn-type="korean" data-btn-index="${index}" onclick="toggleKorean(${index})">
-                            한글 뜻 보기
-                        </button>
-                        <button class="toggle-btn" data-btn-type="analysis" data-btn-index="${index}" onclick="toggleAnalysis(${index})">
-                            단어·문법 분석 보기
-                        </button>
+                        <button class="toggle-btn" data-btn-type="korean" data-btn-index="${index}" onclick="toggleKorean(${index})">한글 뜻 보기</button>
+                        <button class="toggle-btn" data-btn-type="analysis" data-btn-index="${index}" onclick="toggleAnalysis(${index})">단어·문법 분석 보기</button>
                         <div class="analysis-section hidden" data-analysis="${index}">
                             <div class="section-title">📖 핵심 단어</div>
                             <div class="vocabulary-list">
@@ -511,8 +514,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
         function renderSlides() {
@@ -524,10 +526,10 @@
 
         function updateSlidePosition() {
             const wrapper = document.getElementById('sliderWrapper');
-            wrapper.style.transform = `translateX(-${currentSlide * 100}%)`;
-            
+            const container = document.getElementById('sliderContainer');
+            const offset = -currentSlide * container.clientWidth;
+            wrapper.style.transform = `translateX(${offset}px)`;
             document.getElementById('progressText').textContent = `${currentSlide + 1}/3`;
-            
             document.querySelectorAll('.dot').forEach((dot, idx) => {
                 dot.classList.toggle('active', idx === currentSlide);
             });
@@ -535,42 +537,20 @@
 
         function toggleKorean(index) {
             state.showKorean[index] = !state.showKorean[index];
-            
             const slide = document.querySelector(`[data-slide-index="${index}"]`);
             const koreanEls = slide.querySelectorAll(`[data-korean="${index}"]`);
             const btn = slide.querySelector(`[data-btn-type="korean"][data-btn-index="${index}"]`);
-            
-            koreanEls.forEach(el => {
-                if (state.showKorean[index]) {
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
-            });
-            
-            if (btn) {
-                btn.textContent = state.showKorean[index] ? '한글 뜻 숨기기' : '한글 뜻 보기';
-            }
+            koreanEls.forEach(el => el.classList.toggle('hidden', !state.showKorean[index]));
+            if (btn) btn.textContent = state.showKorean[index] ? '한글 뜻 숨기기' : '한글 뜻 보기';
         }
 
         function toggleAnalysis(index) {
             state.showAnalysis[index] = !state.showAnalysis[index];
-            
             const slide = document.querySelector(`[data-slide-index="${index}"]`);
-            const analysisSections = slide.querySelectorAll(`[data-analysis="${index}"]`);
+            const sections = slide.querySelectorAll(`[data-analysis="${index}"]`);
             const btn = slide.querySelector(`[data-btn-type="analysis"][data-btn-index="${index}"]`);
-            
-            analysisSections.forEach(section => {
-                if (state.showAnalysis[index]) {
-                    section.classList.remove('hidden');
-                } else {
-                    section.classList.add('hidden');
-                }
-            });
-            
-            if (btn) {
-                btn.textContent = state.showAnalysis[index] ? '단어·문법 분석 숨기기' : '단어·문법 분석 보기';
-            }
+            sections.forEach(s => s.classList.toggle('hidden', !state.showAnalysis[index]));
+            if (btn) btn.textContent = state.showAnalysis[index] ? '단어·문법 분석 숨기기' : '단어·문법 분석 보기';
         }
 
         function speak(text) {
@@ -580,149 +560,106 @@
             speechSynthesis.speak(utterance);
         }
 
+        // ===== Swipe / Drag Handlers =====
         function handleTouchStart(e) {
-            // 버튼을 터치한 경우 스와이프 무시
-            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-                return;
-            }
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
             startX = e.touches[0].clientX;
             isDragging = true;
+            document.getElementById('sliderWrapper').style.transition = 'none';
         }
-
         function handleTouchMove(e) {
             if (!isDragging) return;
+            const container = document.getElementById('sliderContainer');
             currentX = e.touches[0].clientX;
             const diff = currentX - startX;
-            
-            // 최소 이동 거리 체크
             if (Math.abs(diff) < 3) return;
-            
-            const wrapper = document.getElementById('sliderWrapper');
-            wrapper.style.transition = 'none';
-            wrapper.style.transform = `translateX(calc(-${currentSlide * 100}% + ${diff}px))`;
+            const base = -currentSlide * container.clientWidth;
+            document.getElementById('sliderWrapper').style.transform = `translateX(${base + diff}px)`;
         }
-
-        function handleTouchEnd(e) {
+        function handleTouchEnd() {
             if (!isDragging) return;
             isDragging = false;
-            
+            const container = document.getElementById('sliderContainer');
             const diff = currentX - startX;
-            const threshold = 50;
-            
+            const threshold = Math.min(80, container.clientWidth * 0.2);
             const wrapper = document.getElementById('sliderWrapper');
             wrapper.style.transition = 'transform 0.3s ease';
-            
             if (Math.abs(diff) > threshold) {
-                if (diff > 0 && currentSlide > 0) {
-                    currentSlide--;
-                } else if (diff < 0 && currentSlide < 2) {
-                    currentSlide++;
-                }
+                if (diff > 0 && currentSlide > 0) currentSlide--; else if (diff < 0 && currentSlide < 2) currentSlide++;
             }
-            
             updateSlidePosition();
-            startX = 0;
-            currentX = 0;
+            startX = 0; currentX = 0;
         }
 
         function handleMouseDown(e) {
-            // 버튼이나 클릭 가능한 요소를 클릭한 경우 스와이프 무시
-            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-                return;
-            }
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
             startX = e.clientX;
             isDragging = true;
+            document.getElementById('sliderWrapper').style.transition = 'none';
         }
-
         function handleMouseMove(e) {
             if (!isDragging) return;
             e.preventDefault();
+            const container = document.getElementById('sliderContainer');
             currentX = e.clientX;
             const diff = currentX - startX;
-            
-            // 최소 이동 거리 체크 (작은 움직임 무시)
             if (Math.abs(diff) < 3) return;
-            
-            const wrapper = document.getElementById('sliderWrapper');
-            wrapper.style.transition = 'none';
-            wrapper.style.transform = `translateX(calc(-${currentSlide * 100}% + ${diff}px))`;
+            const base = -currentSlide * container.clientWidth;
+            document.getElementById('sliderWrapper').style.transform = `translateX(${base + diff}px)`;
         }
-
-        function handleMouseUp(e) {
+        function handleMouseUp() {
             if (!isDragging) return;
             isDragging = false;
-            
+            const container = document.getElementById('sliderContainer');
             const diff = currentX - startX;
-            const threshold = 50;
-            
+            const threshold = Math.min(80, container.clientWidth * 0.2);
             const wrapper = document.getElementById('sliderWrapper');
             wrapper.style.transition = 'transform 0.3s ease';
-            
             if (Math.abs(diff) > threshold) {
-                if (diff > 0 && currentSlide > 0) {
-                    currentSlide--;
-                } else if (diff < 0 && currentSlide < 2) {
-                    currentSlide++;
-                }
+                if (diff > 0 && currentSlide > 0) currentSlide--; else if (diff < 0 && currentSlide < 2) currentSlide++;
             }
-            
             updateSlidePosition();
-            startX = 0;
-            currentX = 0;
+            startX = 0; currentX = 0;
         }
 
+        // ===== Progress / Streak =====
         function completeToday() {
             const today = new Date().toDateString();
             const completed = JSON.parse(localStorage.getItem('completedDays') || '[]');
-            
             if (!completed.includes(today)) {
                 completed.push(today);
                 localStorage.setItem('completedDays', JSON.stringify(completed));
                 updateStreak();
-                
                 const btn = document.getElementById('checkBtn');
                 btn.textContent = '오늘 학습 완료! 🎉';
                 btn.classList.add('completed');
                 btn.disabled = true;
             }
         }
-
         function updateStreak() {
             const completed = JSON.parse(localStorage.getItem('completedDays') || '[]');
-            const sortedDates = completed.map(d => new Date(d)).sort((a, b) => b - a);
-            
+            const sorted = completed.map(d => new Date(d)).sort((a,b)=>b-a);
             let streak = 0;
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            for (let i = 0; i < sortedDates.length; i++) {
+            today.setHours(0,0,0,0);
+            for (let i=0; i<sorted.length; i++) {
                 const checkDate = new Date(today);
                 checkDate.setDate(checkDate.getDate() - i);
-                checkDate.setHours(0, 0, 0, 0);
-                
-                const hasDate = sortedDates.some(d => {
-                    d.setHours(0, 0, 0, 0);
-                    return d.getTime() === checkDate.getTime();
-                });
-                
-                if (hasDate) {
-                    streak++;
-                } else {
-                    break;
-                }
+                checkDate.setHours(0,0,0,0);
+                const hasDate = sorted.some(d => { d.setHours(0,0,0,0); return d.getTime() === checkDate.getTime(); });
+                if (hasDate) streak++; else break;
             }
-            
             document.getElementById('streakBadge').textContent = `🔥 연속 ${streak}일`;
         }
 
+        // ===== Init =====
         function init() {
             displayDate();
             renderSlides();
             updateStreak();
-            
+
             const today = new Date().toDateString();
             const completed = JSON.parse(localStorage.getItem('completedDays') || '[]');
-            
             if (completed.includes(today)) {
                 const btn = document.getElementById('checkBtn');
                 btn.textContent = '오늘 학습 완료! 🎉';
@@ -731,17 +668,17 @@
             }
 
             const container = document.getElementById('sliderContainer');
-            
-            container.addEventListener('touchstart', handleTouchStart);
-            container.addEventListener('touchmove', handleTouchMove);
+            container.addEventListener('touchstart', handleTouchStart, { passive: true });
+            container.addEventListener('touchmove', handleTouchMove, { passive: true });
             container.addEventListener('touchend', handleTouchEnd);
-            
             container.addEventListener('mousedown', handleMouseDown);
             container.addEventListener('mousemove', handleMouseMove);
             container.addEventListener('mouseup', handleMouseUp);
             container.addEventListener('mouseleave', handleMouseUp);
-        }
 
+            // 화면 회전/리사이즈 시 현재 슬라이드 정렬 보정
+            window.addEventListener('resize', updateSlidePosition);
+        }
         init();
     </script>
 </body>
